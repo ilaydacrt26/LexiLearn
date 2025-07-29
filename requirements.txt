@@ -1,0 +1,13 @@
+streamlit==1.47.0
+langchain==0.3.26
+chromadb==1.0.15
+openai==1.97.1
+google-generativeai==0.8.5
+SpeechRecognition==3.14.3
+pydub==0.25.1
+psycopg2-binary==2.9.10
+db-sqlite3==0.0.1
+plotly==6.2.0
+pandas==2.3.1
+numpy==2.3.1
+python-dotenv==1.1.1
