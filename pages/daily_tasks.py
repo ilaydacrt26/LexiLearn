@@ -181,6 +181,58 @@ def check_sentence_task(word_data, user_sentence, task_index):
         except:
             st.error("Değerlendirme sonuçları işlenirken hata oluştu.")
 
-## Burada kalındııı
 def vocabulary_notebook():
-    pass
+    # Öğrenilen kelimeler defteri
+    st.write("### 📚 Kelime Defterim")
+
+    db = DatabaseManager()
+
+    learned_words = db.get_user_learned_words(st.session_state.user_id)
+
+    if learned_words:
+        # Filtreleme seçenekleri
+        col1, col2 = st.columns(2)
+        with col1:
+            filter_level = st.selectbox("Seviye:", ["Tümü", "A1", "A2", "B1", "B2"])
+        with col2:
+            sort_by = st.selectbox("Sırala:", ["Tarih", "Skor", "Kelime"])
+
+        # Kelimeleri listele
+        for word_entry in learned_words:
+            with st.expander(f"{word_entry['word']} = Skor: {word_entry['score']/10}"):
+                st.write(f"**Oluşturduğunuz cümle:** {word_entry["sentence"]}")
+                st.write(f"**Tarih:** {word_entry["date"]}")
+                st.write(f"**Kazanılan XP:** {word_entry["xp"]}")
+
+                # Tekrar çalış butonu
+                if st.button(f"Tekrar Çalış", key=f"review_{word_entry["id"]}"):
+                    st.info("Bu kelimeyi tekrar çalışmak için günlük görevlere eklendi!")
+    else:
+        st.info("Henüz kelime öğrenmediniz. Günlük görevleri tamamlayın!")
+
+def achievements():
+    # Başarılar ve rozetler
+    st.write("### 🏆 Başarılarınız")
+
+    db = DatabaseManager()
+    user_stats = db.get_user_statistics(st.session_state.user_id)
+
+    # Rozet sistemi
+    badges = [
+        {"name":"İlk Adım","desc":"İlk kelime görevini tamamla", "icon":"🎯", "condition":user_stats.get("completed_tasks", 0) >= 1},
+        {"name":"Sebatkar","desc":"7 gün üst üste görev tamamla.", "icon":"🔥", "condition":user_stats.get("max_streak", 0) >= 7 },
+        {"name":"Kelime Uzmanı","desc":"100 kelime öğren", "icon":"📚", "condition":user_stats.get("learned_words", 0) >= 100},
+        {"name":"Mükemmelliyetçi","desc":"10 görevi 10/10 skorla tamamla.", "icon":"⭐", "condition":user_stats.get("perfect_scores", 0) >= 10},
+        {"name":"Seviye Atlayıcı","desc":"Bir seviye atla", "icon":"🚀", "condition":user_stats.get("level_ups", 0) >= 1}
+    ]
+
+    col1, col2, col3 = st.columns(3)
+
+    for i, badge in enumerate(badges):
+        with [col1, col2, col3][i%3]:
+            if badge["condition"]:
+                st.success(f"{badge["icon"]} **{badge["name"]}**")
+                st.write(badge["desc"])
+            else:
+                st.info(f"🔐 **{badge['name']}**")
+                st.write(badge["desc"])
