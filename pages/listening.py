@@ -188,9 +188,40 @@ def show_test_results():
                 del st.session_state[key]
         st.rerun()
 
-
-### burada kalındı....
 def listening_results():
-    pass
+    # Dinleme geçmişi
+    st.write("### 📊 Dinleme Geçmişiniz")
+
+    db = DatabaseManager()
+    listening_history = db.get_user_sctivities(
+        st.session_state.user_id,
+        activity_type="listening",
+        limit=10
+    )
+
+    if listening_history:
+        # İstatistikler
+        scores = [activity[2] for activity in listening_history]
+        avg_score = sum(scores) / len(scores)
+
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Ortalama Skor", f"{avg_score:.1f}%")
+        with col2:
+            st.metric("Toplam Test", len(listening_history))
+        with col3:
+            high_scores = len([s for s in scores if s >= 80])
+            st.metric("Yüksek Skor", f"{high_scores}/{len(scores)}")
+
+        # Geçmiş testler
+        st.write("### 🗒️ Test Geçmişi")
+        for activity in listening_history:
+            details = json.loads(activity[4])
+            with st.expander(f"{details["title"]} - Skor: {activity[2]}%"):
+                st.write(f"**Tarih:** {activity[5]}")
+                st.write(f"**Doğru Cevap:** {details["correct_answers"]}/{details["total_questions"]}")
+                st.write(f"**Kazanılan XP:** {activity[3]}")
+    else:
+        st.info("Henüz dinleme egzersizi yapmadınız.")
 
     
