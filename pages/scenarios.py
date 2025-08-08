@@ -200,5 +200,60 @@ def complete_scenario():
 
     # Veritabanına kaydet
     db = DatabaseManager()
-    ### Burada kalındı .....
-                        
+    db.add_user_activitiy(
+        st.session_state.user_id,
+        "scenario",
+        score=int(avg_score),
+        xp_gained=xp_gained,
+        details=json.dumps({
+            "scenario":st.session_state.scenario_key,
+            "dialogue":st.session_state.scenario_dialogue,
+            "scores":st.session_state.scenario_scores
+        })
+    )
+
+    # XP güncelle
+    new_xp, level_up, new_level = db.update_user_xp(
+        st.session_state.user_id,
+        xp_gained,
+        "scenario"
+    )
+
+    if level_up:
+        st.balloons()
+        st.success(f"🎉 Tebrikler! {new_level} seviyesine yükseldiniz!")
+        st.session_state.current_level = new_level
+
+    # Yeni senaryo butonu
+    if st.button("Yeni Senaryo"):
+        # Senaryo state'ini temizle
+        for key in list(st.session_state.keys()):
+            if key.startswith("scenario_"):
+                del st.session_state[key]
+        if "current_scenario" in st.session_state:
+            del st.session_state["current_scenario"]
+        st.rerun()
+
+def show_scenario_results():
+    st.write("### 📊 Senaryo Geçmişiniz")
+
+    db=DatabaseManager()
+    scenario_history=db.get_user_activities(
+        st.session_state.user_id,
+        activity_type="scenario",
+        limit=10
+    )
+
+    if scenario_history:
+        for activity in scenario_history:
+            details=json.loads(activity[4])
+            with st.expander(f"Senaryo: {details["scenario"]} - Skor {activity[2]}/10"):
+                st.write(f"**Tarih:** {activity[5]}")
+                st.write(f"**Ortalama Skor:** {activity[2]}/10")
+                st.write(f"**Kazanılan XP:** {activity[3]}")
+
+                # Diyalog özetini göster
+                dialogue_count = len([d for d in details["dialogue"] if d["speaker"] == "user"])
+                st.write(f"**Toplam Yanıt:** {dialogue_count}")
+    else:
+        st.info("Henüz senaryo tamamlamadınız.")
