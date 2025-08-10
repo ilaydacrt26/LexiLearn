@@ -9,7 +9,7 @@ class LLMHandler:
         genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
         self.model = genai.GenerativeModel('gemini-1.5-flash')
 
-    def generate_response(self, prompt, user_level='A1', context=""):
+    def generate_response(self, prompt, user_level='A1', context="", username=None):
         level_prompts = {
             "A1": "Use simple present tense, basic vocabulary (500 - 1000 words), and short sentences.",
             "A2": "Use present and past tenses, common vocabulary (1000 - 2000 words), and simple compound sentences.",

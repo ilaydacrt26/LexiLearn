@@ -53,8 +53,8 @@ def chat_partner_page():
                     with st.chat_message("assistant"):
                         st.write(message['content'])
 
-        # Kullanıcı girişi
-        user_input = st.text_input("Mesajınızı yazın...")
+        # Kullanıcı girişi - chat_input kullanarak
+        user_input = st.chat_input("Mesajınızı yazın...")
 
         if user_input:
             # Kullanıcı mesajını ekle
@@ -73,10 +73,16 @@ def chat_partner_page():
             context = " ".join(relevant_content) if relevant_content else ""
 
             # LLM ile yanıt oluştur
+            username = st.session_state.get('username', None)
+            # Debug için kullanıcı adını göster
+            if username:
+                st.write(f"Debug: Kullanıcı adı '{username}' olarak AI'ya gönderiliyor")
+            
             response = st.session_state.llm_handler.generate_response(
                 prompt=user_input,
                 user_level=st.session_state.current_level,
-                context=f"Topic: {selected_topic}. Context: {context}"
+                context=f"Topic: {selected_topic}. Context: {context}",
+                username=username
             )
 
             # Kullanıcı girişini analiz et
