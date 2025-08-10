@@ -1,7 +1,7 @@
 import chromadb
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.embeddings import GooglePalmEmbeddings
-from langchain.vectorstores import Chroma
+from langchain_community.embeddings import GooglePalmEmbeddings
+from langchain_community.vectorstores import Chroma
 import os 
 
 class RAGSystem:
@@ -30,9 +30,15 @@ class RAGSystem:
 
     def search_content(self, query, level, content_type=None, n_results=3):
         # Seviye ve türe göre içerik ara
-        where_clause = {"level": level}
         if content_type:
-            where_clause["type"] = content_type
+            where_clause = {
+                "$and": [
+                    {"level": {"$eq": level}},
+                    {"type": {"$eq": content_type}}
+                ]
+            }
+        else:
+            where_clause = {"level": {"$eq": level}}
 
         results = self.collection.query(
             query_texts=[query],

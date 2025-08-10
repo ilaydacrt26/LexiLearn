@@ -82,7 +82,8 @@ class DatabaseManager:
         cursor = conn.cursor()
 
         cursor.execute("SELECT xp_points FROM users WHERE id = ?", (user_id,))
-        current_xp = cursor.fetchone()[0] or 0
+        row = cursor.fetchone()
+        current_xp = (row[0] if row and row[0] is not None else 0)
         new_xp = current_xp + xp_to_add
 
         cursor.execute("UPDATE users SET xp_points = ? WHERE id = ?", (new_xp, user_id))
@@ -100,7 +101,7 @@ class DatabaseManager:
         conn.commit()
         conn.close()
 
-        return new_xp, level_changed, new_level if level_changed else None
+        return new_xp, level_changed, (new_level if level_changed else None)
 
     # === EKLENEN FONKSİYONLAR ===
 

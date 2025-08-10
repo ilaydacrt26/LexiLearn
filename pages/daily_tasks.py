@@ -92,8 +92,8 @@ def daily_words_tasks():
             with col2:
                 st.write("### 🎯 Puan")
 
-                if f"task_{i}" in st.session_state.completed_tasks:
-                    task_result = next(t for t in st.session_state.completed_tasks if t["task_id"] == f"task_{i}")
+                if any(t.get("task_id") == f"task_{i}" for t in st.session_state.completed_tasks):
+                    task_result = next(t for t in st.session_state.completed_tasks if t.get("task_id") == f"task_{i}")
                     st.success(f"Tamamlandı! 🎉")
                     st.write(f"Skor: {task_result['score']}/10")
                     st.write(f"XP: +{task_result['xp']}")
@@ -124,7 +124,21 @@ def check_sentence_task(word_data, user_sentence, task_index):
         evaluation = st.session_state.llm_handler.model.generate_content(prompt)
 
         try:
-            eval_data = json.loads(evaluation.text)
+            # Bazı durumlarda model JSON dışında ön/arka metin ekleyebilir; yalnızca JSON kısmını ayıkla
+            raw_text = getattr(evaluation, "text", "") or ""
+            raw_text = raw_text.strip()
+            if not raw_text:
+                raise ValueError("Model boş yanıt döndürdü")
+
+            # JSON olmayan önek/ekleri temizlemeye çalış
+            first_brace = raw_text.find("{")
+            last_brace = raw_text.rfind("}")
+            if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
+                json_text = raw_text[first_brace:last_brace+1]
+            else:
+                json_text = raw_text
+
+            eval_data = json.loads(json_text)
             score = eval_data.get("score", 5)
 
             # Sonuçları göster
@@ -172,14 +186,15 @@ def check_sentence_task(word_data, user_sentence, task_index):
             st.session_state.completed_tasks.append(task_result)
 
             if level_up:
-                st.ballons()
+                st.balloons()
                 st.success(f"🎉 Tebrikler! {new_level} seviyesine yükseldiniz!")
                 st.session_state.current_level = new_level
             
             st.write(f"**Kazanılan XP:** +{final_xp}")
 
-        except:
+        except Exception as e:
             st.error("Değerlendirme sonuçları işlenirken hata oluştu.")
+            st.caption(f"Hata detayı: {e}")
 
 def vocabulary_notebook():
     # Öğrenilen kelimeler defteri
@@ -200,12 +215,12 @@ def vocabulary_notebook():
         # Kelimeleri listele
         for word_entry in learned_words:
             with st.expander(f"{word_entry['word']} = Skor: {word_entry['score']/10}"):
-                st.write(f"**Oluşturduğunuz cümle:** {word_entry["sentence"]}")
-                st.write(f"**Tarih:** {word_entry["date"]}")
-                st.write(f"**Kazanılan XP:** {word_entry["xp"]}")
+                st.write(f"**Oluşturduğunuz cümle:** {word_entry['sentence']}")
+                st.write(f"**Tarih:** {word_entry['date']}")
+                st.write(f"**Kazanılan XP:** {word_entry['xp']}")
 
                 # Tekrar çalış butonu
-                if st.button(f"Tekrar Çalış", key=f"review_{word_entry["id"]}"):
+                if st.button("Tekrar Çalış", key=f"review_{word_entry['id']}"):
                     st.info("Bu kelimeyi tekrar çalışmak için günlük görevlere eklendi!")
     else:
         st.info("Henüz kelime öğrenmediniz. Günlük görevleri tamamlayın!")
@@ -231,8 +246,8 @@ def achievements():
     for i, badge in enumerate(badges):
         with [col1, col2, col3][i%3]:
             if badge["condition"]:
-                st.success(f"{badge["icon"]} **{badge["name"]}**")
-                st.write(badge["desc"])
+                st.success(f"{badge['icon']} **{badge['name']}**")
+                st.write(badge['desc'])
             else:
                 st.info(f"🔐 **{badge['name']}**")
                 st.write(badge["desc"])

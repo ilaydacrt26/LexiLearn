@@ -1,6 +1,7 @@
 import google.generativeai as genai
 import os
 from dotenv import load_dotenv
+import json
 
 load_dotenv()
 
@@ -17,9 +18,13 @@ class LLMHandler:
             "B2": "Use advanced grammar, wide vocabulary (3000+), and sophisticated expressions.",
         }   
 
+        user_name_instruction = f"IMPORTANT: The user's name is {username}. Always use '{username}' when addressing them. NEVER use generic names like 'John', 'Sarah', or any other name." if username else ""
+
         system_prompt = f"""
         You are an English learning assistant. The user is at level {user_level}.
         {level_prompts.get(user_level, level_prompts['A1'])}
+        
+        {user_name_instruction}
 
         Guidelines:
         - Always respond in English.
@@ -27,6 +32,7 @@ class LLMHandler:
         - Provide alternative expressions.
         - Ask follow-up questions to continue the conversation.
         - Be encouraging and supportive.
+        - CRITICAL: When addressing the user, use their actual name '{username}' only. Do not use any other names.
 
         Context: {context}
         """

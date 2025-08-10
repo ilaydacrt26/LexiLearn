@@ -1,4 +1,5 @@
 import streamlit as st
+import json
 from utils.llm_handler import LLMHandler
 from utils.rag_system import RAGSystem
 from database.models import DatabaseManager
@@ -48,7 +49,55 @@ def chat_partner_page():
                         st.write(message['content'])
                         if 'analysis' in message:
                             with st.expander("📝 Analiz"):
-                                st.write(message['analysis'])
+                                analysis_data = message.get('analysis')
+
+                                # Parse JSON string if necessary
+                                if isinstance(analysis_data, str):
+                                    try:
+                                        analysis_data = json.loads(analysis_data)
+                                    except Exception:
+                                        # Fallback: show raw text if not JSON
+                                        st.write(analysis_data)
+                                        analysis_data = None
+
+                                # Unwrap if returned as { "analysis": { ... } }
+                                if isinstance(analysis_data, dict) and 'analysis' in analysis_data and isinstance(analysis_data['analysis'], dict):
+                                    analysis_data = analysis_data['analysis']
+
+                                if isinstance(analysis_data, dict):
+                                    grammar_mistakes = analysis_data.get('grammar_mistakes') or []
+                                    vocabulary_suggestions = analysis_data.get('vocabulary_suggestions') or []
+                                    overall_assessment = analysis_data.get('overall_assessment')
+                                    encouragement_feedback = analysis_data.get('encouragement_feedback')
+
+                                    # Title line with stars if available
+                                    if overall_assessment is not None:
+                                        try:
+                                            rating = int(str(overall_assessment).strip().split()[0])
+                                            stars = '⭐' * max(0, min(5, rating))
+                                            st.markdown(f"**Genel Değerlendirme:** {stars} ({rating}/5)")
+                                        except Exception:
+                                            st.markdown(f"**Genel Değerlendirme:** {overall_assessment}")
+
+                                    if grammar_mistakes:
+                                        st.markdown("**🧩 Dilbilgisi Notları:**")
+                                        for item in grammar_mistakes:
+                                            st.markdown(f"- {item}")
+
+                                    if vocabulary_suggestions:
+                                        st.markdown("**🗂️ Kelime Önerileri:**")
+                                        for item in vocabulary_suggestions:
+                                            st.markdown(f"- {item}")
+
+                                    if encouragement_feedback:
+                                        st.markdown("**💡 Geri Bildirim:**")
+                                        st.write(encouragement_feedback)
+                                
+                                elif analysis_data is None:
+                                    pass
+                                else:
+                                    # Unknown structure; show safely
+                                    st.write(analysis_data)
                 else:
                     with st.chat_message("assistant"):
                         st.write(message['content'])
@@ -74,9 +123,9 @@ def chat_partner_page():
 
             # LLM ile yanıt oluştur
             username = st.session_state.get('username', None)
-            # Debug için kullanıcı adını göster
-            if username:
-                st.write(f"Debug: Kullanıcı adı '{username}' olarak AI'ya gönderiliyor")
+            # # Debug için kullanıcı adını göster
+            # if username:
+            #     st.write(f"Debug: Kullanıcı adı '{username}' olarak AI'ya gönderiliyor")
             
             response = st.session_state.llm_handler.generate_response(
                 prompt=user_input,
