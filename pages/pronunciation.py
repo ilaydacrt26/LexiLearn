@@ -110,7 +110,7 @@ def show_pronunciation_results():
     st.write("### 📊 Son Sonuçlarınız")
 
     db = DatabaseManager()
-    recent_activities = db.get_user_activities(
+    recent_activities = db.get_user_activity(
         st.session_state.user_id, 
         activity_type="pronunciation", 
         limit=10

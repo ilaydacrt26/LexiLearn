@@ -64,7 +64,7 @@ def get_daily_words():
 
     return random.sample(all_words, min(5, len(all_words)))
 
-def daily_word_tasks():
+def daily_words_tasks():
     st.write("### 🎯 Bugünün Kelimeleri")
 
     for i, word_data in enumerate(st.session_state.daily_words):

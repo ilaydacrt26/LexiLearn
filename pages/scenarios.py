@@ -200,7 +200,7 @@ def complete_scenario():
 
     # Veritabanına kaydet
     db = DatabaseManager()
-    db.add_user_activitiy(
+    db.add_user_activity(
         st.session_state.user_id,
         "scenario",
         score=int(avg_score),
@@ -238,7 +238,7 @@ def show_scenario_results():
     st.write("### 📊 Senaryo Geçmişiniz")
 
     db=DatabaseManager()
-    scenario_history=db.get_user_activities(
+    scenario_history=db.get_user_activity(
         st.session_state.user_id,
         activity_type="scenario",
         limit=10

@@ -193,7 +193,7 @@ def listening_results():
     st.write("### 📊 Dinleme Geçmişiniz")
 
     db = DatabaseManager()
-    listening_history = db.get_user_sctivities(
+    listening_history = db.get_user_activity(
         st.session_state.user_id,
         activity_type="listening",
         limit=10
