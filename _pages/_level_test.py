@@ -1,6 +1,6 @@
 import streamlit as st
 from utils.llm_handler import LLMHandler
-from data.level_test_questions import LEVEL_TEST_QUESTİONS
+from data.level_test_questions import LEVEL_TEST_QUESTIONS
 
 # Level test sayfası
 def level_test_page():
@@ -23,7 +23,7 @@ def level_test_page():
 # Level test fonksiyonu
 def run_level_test():
     all_questions = []
-    for level, questions in LEVEL_TEST_QUESTİONS.items():
+    for level, questions in LEVEL_TEST_QUESTIONS.items():
         all_questions.extend(questions)
     
     if st.session_state.current_question < len(all_questions):
@@ -46,7 +46,7 @@ def run_level_test():
 
 # Seviye hesaplama fonksiyonu
 def calculate_level():
-    total_possible = sum(q['points'] for questions in LEVEL_TEST_QUESTİONS.values() for q in questions)
+    total_possible = sum(q['points'] for questions in LEVEL_TEST_QUESTIONS.values() for q in questions)
     percentage = (st.session_state.total_score / total_possible) * 100
 
     if percentage < 25:

@@ -10,8 +10,8 @@ plotly==6.2.0
 pandas==2.3.1
 numpy==2.3.1
 python-dotenv==1.1.1
-streamlit-audiorecorder
-streamlit-mic-recorder
-streamlit-audiorec
-json_repair
-gTTS
+streamlit-audiorecorder==0.0.6
+streamlit-mic-recorder==0.0.8
+streamlit-audiorec==0.1.3
+json_repair==0.49.0
+gTTS==2.5.4

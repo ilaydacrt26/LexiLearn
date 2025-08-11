@@ -57,7 +57,7 @@ def show_dashboard():
         avg_score = user_stats.get('average_score', 0)
         st.metric(
             "Ortalama Skor",
-            f"{avg_score:.1f}/10",
+            f"{avg_score:.1f}",
             delta = "📈"if avg_score > 7 else "📉"
         )
 
@@ -67,7 +67,8 @@ def show_dashboard():
 
     if weekly_data:
         df = pd.DataFrame(weekly_data, columns=['date', 'activity_count', 'xp_gained'])
-
+        df['date'] = pd.to_datetime(df['date'])  # Convert date to datetime objects
+        df = df.sort_values(by='date')  # Sort by date
         fig = go.Figure()
         fig.add_trace(go.Bar(
             x=df['date'],
@@ -97,7 +98,10 @@ def show_dashboard():
             modules = list(module_stats.keys())
             scores = [module_stats[m]['avg_score'] for m in modules]
 
-            fig = go.Figure(data=go.Bar(x=modules, y=scores))
+            fig = go.Figure(data=go.Bar(x=modules, y=scores,
+            name='Ortalama Skor',  # Add a name for the trace
+            marker_color='lightcoral' # Example color
+            ))
             fig.update_layout(
                 title="Modül Ortalama Skorları",
                 yaxis=dict(range=[0, 10]),
@@ -107,6 +111,7 @@ def show_dashboard():
 
         with col2:
             # Aktivite dağılımı
+            modules = list(module_stats.keys())
             counts = [module_stats[m]['count'] for m in modules]
 
             fig = go.Figure(data=go.Pie(labels=modules, values=counts))
@@ -203,7 +208,7 @@ def show_progress_charts():
         )
         st.plotly_chart(fig, use_container_width=True)
 
-def show_schievements():
+def show_achievements():
     st.write("### 🏆 Başarılar ve Rozetler")
 
     db = DatabaseManager()
@@ -327,9 +332,10 @@ def show_settings():
         if st.button("İlerleme Raporunu İndir"):
             generate_progress_report()
 
-        if st.button("Verileri Sıfırla", type="secondary"):
-            if st.checkbox("Verilerimi sikmek istediğimi onaylıyorum"):
-                reset_user_data()
+        # Veri sıfırlama onay kutucuğu ve butonu
+        confirm_reset = st.checkbox("Verilerimi sıfırlamak istediğimi onaylıyorum", key="confirm_data_reset")
+        if st.button("Verileri Sıfırla", type="secondary", disabled=not confirm_reset, key="reset_data_button"):
+            reset_user_data()
 
 def generate_progress_report():
     # Kullanıcı ilerleme raporu oluştur
@@ -351,11 +357,11 @@ def generate_progress_report():
     # Veriler
     for activity in all_activities:
         writer.writerow([
-            activity[5], # Tarih
-            activity[1], # Tür
-            activity[2], # Skor
-            activity[3], # XP
-            activity[4] # Detaylar
+            activity[4], # Tarih
+            activity[0], # Tür
+            activity[1], # Skor
+            activity[2], # XP
+            activity[3] # Detaylar
         ])
 
     # İndirme
@@ -370,12 +376,16 @@ def generate_progress_report():
 
 def reset_user_data():
     # Kullanıcı verilerini sıfırla
-
     db = DatabaseManager()
-    db.reset_user_progress(st.session_state.user_id)
+    user_id = st.session_state.user_id
+    db.reset_user_progress(user_id)
 
-    # Session state'i temizle
+    # Session state'i temizle, ancak önemli bilgileri koru
     st.session_state.current_level = "A1"
+    st.session_state.test_started = False # Reset level test state
+    st.session_state.current_question = 0 # Reset current question
+    st.session_state.answers = [] # Reset answers
+    st.session_state.total_score = 0 # Reset total score
 
-    st.success("Verileriniz sıfırlandı. Yeni bir başlangıç ayapbilirsiniz!")
+    st.success("Verileriniz sıfırlandı. Yeni bir başlangıç yapabilirsiniz!")
     st.rerun()
