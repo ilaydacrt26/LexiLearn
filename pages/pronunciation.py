@@ -57,7 +57,7 @@ def pronunciation_exercise():
                 use_container_width=True,
                 key="mic_recorder_pronunciation",
                 # Eğer destekliyorsa format="wav" ekleyebilirsin
-                # format="wav"
+                format="wav"
             )
 
             audio_bytes = None
