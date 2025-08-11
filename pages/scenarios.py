@@ -15,11 +15,11 @@ def scenarios_page():
     tab1, tab2, tab3 = st.tabs(["🎬 Senaryo Seç", "🎭 Rol Yapma", "📊 Sonuçlar"])
 
     with tab1:
-        select_scenario()
+        st.session_state.scenario_handler.select_scenario()
     
     with tab2:
         if 'current_scenario' in st.session_state:
-            role_play_scenario()
+            st.session_state.scenario_handler.role_play_scenario()
         else:
             st.info("Önce bir senaryo seçin!")
 
@@ -29,19 +29,12 @@ def scenarios_page():
 class ScenarioHandler:
     def __init__(self):
         self.llm_handler = LLMHandler()
-        self.current_dialogue = []
-        self.dialogue_step = 0
 
     def start_scenarios(self, scenario_data):
-        # Senaryoyu başlat
-        self.current_dialogue = []
-        self.dialogue_step = 0
         self.scenarios_data = scenario_data
-        return scenario_data["dialogue_flow"][0]
-    
+
     def process_user_response(self, user_response, expected_response):
-        # Kullanıcı yanıtını işle
-        prompt = f"""
+        prompt = f'''
         Evaluate the user's response in this scenario context:
         Expected response type: {expected_response}
         User's actual response: "{user_response}"
@@ -54,19 +47,33 @@ class ScenarioHandler:
         4. Natural flow of conversation
 
         Provide feedback and a score. Format at JSON.
-        """
+        '''
 
         evaluation = self.llm_handler.model.generate_content(prompt)
-        return evaluation.text
-    
-    def get_next_dialogue_step(self):
-        # Sonraki diyalog adımını al
-        self.dialogue_step += 1
-        if self.dialogue_step < len(self.scenarios_data['dialogue_flow']):
-            return self.scenarios_data["dialogue_flow"][self.dialogue_step]
-        return None
-    
-    def select_scenario():
+        raw_text = evaluation.text or ""
+        json_str = self.llm_handler.extract_json(raw_text)
+
+        if json_str:
+            try:
+                eval_data = json.loads(json_str)
+                score = eval_data.get("score", 5)
+
+                user_dialogue = {
+                    "speaker": "user",
+                    "text": user_response,
+                    "score": score,
+                    "feedback": eval_data.get("feedback","")
+                }
+                st.session_state.scenario_dialogue.append(user_dialogue)
+                st.session_state.scenario_scores.append(score)
+                st.session_state.scenario_step += 1 # Advance to next step (NPC)
+                st.rerun()
+            except json.JSONDecodeError:
+                st.error("Yanıt değerlendirilemedi: LLM yanıtı geçerli JSON değil.")
+        else:
+            st.error("Yanıt değerlendirilemedi: LLM yanıtında JSON bulunamadı.")
+
+    def select_scenario(self):
         st.write("### 🎬 Senaryo Seçin")
 
         user_level = st.session_state.current_level
@@ -93,30 +100,30 @@ class ScenarioHandler:
                     st.session_state.scenario_started = False
                     st.success("Senaryo seçildi! 'Rol Yapma' sekmesine geçin.")
 
-    def role_play_scenario():
+    def role_play_scenario(self):
         st.write(f"### 🎭 {st.session_state.current_scenario['title']}")
         st.write(st.session_state.current_scenario['description'])
 
-        # Senaryo başlatma
+        # Initialize scenario state if not started
         if not st.session_state.get('scenario_started', False):
             if st.button("🎬 Senaryoyu başlat"):
-                first_dialogue = st.session_state.scenario_handler.start_scenario(
-                    st.session_state.current_scenario
-                )
-
-                st.session_state.scenario_dialogue = [first_dialogue]
+                st.session_state.scenario_handler.start_scenarios(st.session_state.current_scenario)
+                st.session_state.scenario_dialogue = [] # Empty list for dialogue history
                 st.session_state.scenario_started = True
-                st.session_state.scenario_step = 0
+                st.session_state.scenario_step = 0 # Start at index 0 of dialogue_flow
                 st.session_state.scenario_scores = []
-                st.rerun()
+                st.rerun() # Rerun to display first NPC message
 
         if st.session_state.get("scenario_started", False):
-            # Diyalog geçmişini göster
             st.write("### 💬 Konuşma")
 
-            for i, dialogue in enumerate(st.session_state.scenario_dialogue):
+            dialogue_flow = st.session_state.current_scenario["dialogue_flow"]
+            current_step_idx = st.session_state.scenario_step
+
+            # Display all dialogues already in history
+            for dialogue in st.session_state.scenario_dialogue:
                 if dialogue["speaker"] != "user":
-                    with st.chat_message("asistant"):
+                    with st.chat_message("assistant"):
                         st.write(f"**{dialogue['speaker'].title()}:** {dialogue['text']}")
                 else:
                     with st.chat_message("user"):
@@ -124,59 +131,54 @@ class ScenarioHandler:
                         if 'score' in dialogue:
                             st.write(f"**Skor: {dialogue['score']}/10")
 
-            # Kullanıcı girişi
-            current_step = st.session_state.scenario_step
-            dialogue_flow = st.session_state.current_scenario["dialogue_flow"]
+            # Logic to handle the current step in dialogue_flow
+            if current_step_idx < len(dialogue_flow):
+                current_dialogue_item = dialogue_flow[current_step_idx]
 
-            if current_step < len(dialogue_flow):
-                if current_step % 2 == 1:
-                    expected = dialogue_flow[current_step]["expected"]
-                    st.write(f"**🎯 Beklenen:** {expected}")
+                if current_dialogue_item["speaker"] != "user": # It's an NPC's turn to speak
+                    # Append NPC dialogue to history if it's not already there
+                    if not st.session_state.scenario_dialogue or \
+                       (st.session_state.scenario_dialogue[-1] != current_dialogue_item):
+                        st.session_state.scenario_dialogue.append(current_dialogue_item)
+                        st.session_state.scenario_step += 1 # Advance to next step (should be user's turn)
+                        st.rerun() # Rerun to display the NPC message and potentially the user input for the next turn
+                else: # It's the user's turn to respond
+                    expected_response_type = current_dialogue_item["expected"]
+                    st.write(f"**🎯 Beklenen:** {expected_response_type}")
 
                     user_response = st.text_input(
                         "Yanıtınızı yazın:",
-                        key=f"response_{current_step}"
+                        key=f"response_{current_step_idx}"
                     )
 
                     if st.button("Yanıtı Gönder") and user_response:
-                        # Yanıtı değerlendir
-                        evaluation = st.session_state.scenario_handler.process_user_response(
-                            user_response, expected
+                        evaluation = self.process_user_response(
+                            user_response, expected_response_type
                         )
 
                         try:
                             eval_data = json.loads(evaluation)
                             score = eval_data.get("score", 5)
 
-                            # Kullanıcı yanıtını kaydet
                             user_dialogue = {
                                 "speaker": "user",
                                 "text": user_response,
                                 "score": score,
                                 "feedback": eval_data.get("feedback","")
                             }
-
                             st.session_state.scenario_dialogue.append(user_dialogue)
                             st.session_state.scenario_scores.append(score)
-                            st.session_state.scenario_step += 1
-
-                            # Sonraki NPc yanıtını ekle
-                            next_step = st.session_state.scenario_handler.get_next_dialogue_step()
-                            if next_step:
-                                st.session_state.scenario_dialogue.append(next_step)
-                                st.session_state.scenario_step += 1
-
+                            st.session_state.scenario_step += 1 # Advance to next step (NPC)
                             st.rerun()
                         except json.JSONDecodeError:
-                            st.error("Yanıt değerlendirildi.")
+                            st.error("Yanıt değerlendirilemedi.")
             else:
-                # Senaryo tamamlandı
+                # Scenario completed
                 complete_scenario()
 
 def complete_scenario():
     st.success("🎉 Senaryo Tamamlandı!")
 
-    # Skorları hesapla
     total_score = sum(st.session_state.scenario_scores)
     avg_score = total_score/len(st.session_state.scenario_scores) if st.session_state.scenario_scores else 0
 
@@ -195,10 +197,9 @@ def complete_scenario():
         st.metric("Performans", preformance)
 
     with col3:
-        xp_gained = int(30 * (avg_score / 10)) # 30 XP oranında
+        xp_gained = int(30 * (avg_score / 10))
         st.metric("Kazanılan XP", f"+{xp_gained}")
 
-    # Veritabanına kaydet
     db = DatabaseManager()
     db.add_user_activity(
         st.session_state.user_id,
@@ -212,7 +213,6 @@ def complete_scenario():
         })
     )
 
-    # XP güncelle
     new_xp, level_up, new_level = db.update_user_xp(
         st.session_state.user_id,
         xp_gained,
@@ -224,9 +224,7 @@ def complete_scenario():
         st.success(f"🎉 Tebrikler! {new_level} seviyesine yükseldiniz!")
         st.session_state.current_level = new_level
 
-    # Yeni senaryo butonu
     if st.button("Yeni Senaryo"):
-        # Senaryo state'ini temizle
         for key in list(st.session_state.keys()):
             if key.startswith("scenario_"):
                 del st.session_state[key]
@@ -252,7 +250,6 @@ def show_scenario_results():
                 st.write(f"**Ortalama Skor:** {activity[2]}/10")
                 st.write(f"**Kazanılan XP:** {activity[3]}")
 
-                # Diyalog özetini göster
                 dialogue_count = len([d for d in details["dialogue"] if d["speaker"] == "user"])
                 st.write(f"**Toplam Yanıt:** {dialogue_count}")
     else:

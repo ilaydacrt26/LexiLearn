@@ -7,6 +7,7 @@ import re
 import json
 import wave
 import audioop
+from gtts import gTTS # Added for Text-to-Speech
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -14,6 +15,18 @@ load_dotenv()
 class AudioHandler:
     def __init__(self):
         self.recognizer = sr.Recognizer()
+
+    def text_to_speech(self, text, lang='en'):
+        """Converts text to speech and saves it to a temporary WAV file."""
+        try:
+            tts = gTTS(text=text, lang=lang, slow=False)
+            temp_mp3_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3").name
+            tts.save(temp_mp3_path)
+
+            return temp_mp3_path
+        except Exception as e:
+            st.error(f"Text-to-speech error: {e}")
+            return None
 
     def transcribe_audio(self, audio_bytes):
         """Transcribe audio bytes robustly without external tools.
@@ -112,6 +125,24 @@ class AudioHandler:
         except Exception:
             return b""
 
+    def extract_json(self, text: str) -> str | None:
+        fenced = re.search(r"```json\s*(\{[\s\S]*?\})\s*```", text, re.IGNORECASE)
+        if fenced:
+            return fenced.group(1)
+        start = text.find("{")
+        if start == -1:
+            return None
+        depth = 0
+        for idx in range(start, len(text)):
+            ch = text[idx]
+            if ch == '{':
+                depth += 1
+            elif ch == '}':
+                depth -= 1
+                if depth == 0:
+                    return text[start:idx+1]
+        return None
+
     def analyze_pronunciation(self, original_text, spoken_text, user_level):
         """Analyze pronunciation via LLM and always return a strict JSON string.
 
@@ -151,27 +182,7 @@ class AudioHandler:
         except Exception as e:
             raw_text = ""
 
-        # JSON çıkarma
-        def extract_json(text: str) -> str | None:
-            fenced = re.search(r"```json\s*(\{[\s\S]*?\})\s*```", text, re.IGNORECASE)
-            if fenced:
-                return fenced.group(1)
-            # İlk dengeli JSON objesini yakalamaya çalış
-            start = text.find("{")
-            if start == -1:
-                return None
-            depth = 0
-            for idx in range(start, len(text)):
-                ch = text[idx]
-                if ch == '{':
-                    depth += 1
-                elif ch == '}':
-                    depth -= 1
-                    if depth == 0:
-                        return text[start:idx+1]
-            return None
-
-        json_str = extract_json(raw_text)
+        json_str = self.extract_json(raw_text)
         result: dict
         if json_str:
             try:

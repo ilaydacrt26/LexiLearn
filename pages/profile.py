@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 def profile_page():
     st.title("👤 Profil ve İlerleme")
 
-    tab1, tab2, tab3, tab4 = st.tabs("📊 Dashboard", "📈 İlerleme", "🏆 Başarılar", "⚙️ Ayarlar")
+    tab1, tab2, tab3, tab4 = st.tabs(["📊 Dashboard", "📈 İlerleme", "🏆 Başarılar", "⚙️ Ayarlar"])
 
     with tab1:
         show_dashboard()
@@ -26,7 +26,7 @@ def show_dashboard():
     st.write("### 📊 Genel Bakış")
 
     db = DatabaseManager()
-    user_stats = db.get_compehensive_user_stats(st.session_state.user_id)
+    user_stats = db.get_comprehensive_user_stats(st.session_state.user_id)
 
     # Ana metrikler
     col1, col2, col3, col4 = st.columns(4)

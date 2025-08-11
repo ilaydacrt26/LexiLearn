@@ -3,6 +3,8 @@ from data.listening_data import LISTENING_CONTENT
 from database.models import DatabaseManager
 import random
 import json
+import os # Added for file handling
+from utils.audio_handler import AudioHandler # Added for Text-to-Speech
 
 def listening_page():
     st.title("🎧 Dinleme Egzersizleri")
@@ -14,7 +16,7 @@ def listening_page():
 
     with tab2:
         if "current_listening" in st.session_state:
-            listeming_test()
+            listening_test()
         else:
             st.info("Önce ses dosyasını dinleyin!")
 
@@ -36,22 +38,32 @@ def listening_exercise():
                 # Gerçek uygulamada ses dosyası oynatılacak 
                 # Şimdilik transkript gösteriyoruz
                 # st.audio("data/audio_files/sample.mp3")
+                
+                # Use Text-to-Speech
+                audio_handler = AudioHandler()
+                transcript_text = content["transcript"]
+                audio_file = audio_handler.text_to_speech(transcript_text)
+                if audio_file:
+                    st.audio(audio_file, format="audio/mp3")
+                    # Clean up the temporary file after playback
+                    os.unlink(audio_file)
+
+                # Clear previous test state
+                if "listening_answers" in st.session_state:
+                    del st.session_state.listening_answers
+                if "test_completed" in st.session_state:
+                    del st.session_state.test_completed
+                if "test_score" in st.session_state:
+                    del st.session_state.test_score
+                if "correct_count" in st.session_state:
+                    del st.session_state.correct_count
+                if "total_count" in st.session_state:
+                    del st.session_state.total_count
 
                 st.session_state.current_listening=content
                 st.session_state.listening_index=i
                 st.success("Ses dinlendi! Test sekmesine geçebilirsiniz.")
 
-            # Zorluk ayarı
-            difficulty = st.selectbox(
-                "Zorluk Seviyesi",
-                ["Normal", "Yavaş", "Hızlı"],
-                key=f"diff_{i}"
-            )
-
-            if difficulty == "Yavaş":
-                st.info("🐌 Ses %75 hızda oynatılacak")
-            elif difficulty=="Hızlı":
-                st.info("🐇 Ses %125 hızda oynatılacak")
 
 def listening_test():
     st.write(f"### 📝 Test: {st.session_state.current_listening['title']}")
@@ -62,10 +74,6 @@ def listening_test():
 
     # Ses dosyasını tekrar dinleme seçeneği
     col1, col2 = st.columns([3,1])
-
-    with col2:
-        if st.button("🔁 Tekrar Dinle"):
-            st.success("Ses tekrar oynatıldı!")
 
     with col1:
         if not st.session_state.test_completed:
@@ -82,6 +90,14 @@ def listening_test():
                 )
 
             if st.button("Testi Tamamla"):
+                # Collect answers before evaluating
+                questions = st.session_state.current_listening["questions"]
+                for i, question in enumerate(questions):
+                    # Get the selected option's index (assuming st.radio returns the option string)
+                    # We need to find the index of the selected option from the original options list
+                    selected_option = st.session_state[f"q_{i}"]
+                    st.session_state.listening_answers[i] = question["options"].index(selected_option)
+                
                 evaluate_listening_test()
         else:
             show_test_results()
@@ -99,7 +115,7 @@ def evaluate_listening_test():
 
     # Skor hesapla
     score = (correct_answers / total_questions) * 100
-    st.session_state.text_score = score
+    st.session_state.test_score = score # Changed from text_score to test_score
     st.session_state.correct_count = correct_answers
     st.session_state.total_count = total_questions
     st.session_state.test_completed = True

@@ -2,6 +2,7 @@ import google.generativeai as genai
 import os
 from dotenv import load_dotenv
 import json
+import re
 
 load_dotenv()
 
@@ -63,4 +64,22 @@ class LLMHandler:
             response = self.model.generate_content(prompt)
             return response.text
         except Exception as e:
-            return {"error": str(e)}
+            return json.dumps({"error": str(e)})
+
+    def extract_json(self, text: str) -> str | None:
+        fenced = re.search(r"```json\s*(\{[\s\S]*?\})\s*```", text, re.IGNORECASE)
+        if fenced:
+            return fenced.group(1)
+        start = text.find("{")
+        if start == -1:
+            return None
+        depth = 0
+        for idx in range(start, len(text)):
+            ch = text[idx]
+            if ch == '{':
+                depth += 1
+            elif ch == '}':
+                depth -= 1
+                if depth == 0:
+                    return text[start:idx+1]
+        return None
