@@ -205,30 +205,22 @@ class DatabaseManager:
         dates = [datetime.strptime(row[0], "%Y-%m-%d").date() for row in cursor.fetchall()]
         conn.close()
 
-        longest_streak = 1
-        current_streak = 0 # Initialize to 0, will be updated
-        today = date.today()
-        yesterday = today - timedelta(days=1)
+        if not dates:
+            return {"current_streak": 0, "longest_streak": 0}
 
-        if dates:
-            # Calculate current streak
-            # If the most recent activity is today
-            if dates[0] == today:
-                current_streak = 1
-                for i in range(1, len(dates)):
-                    if dates[i] == dates[i-1] - timedelta(days=1):
-                        current_streak += 1
-                    else:
-                        break
-            # If the most recent activity was yesterday, and no activity today
-            elif dates[0] == yesterday:
-                current_streak = 1
-                for i in range(1, len(dates)):
-                    if dates[i] == dates[i-1] - timedelta(days=1):
-                        current_streak += 1
-                    else:
-                        break
-            # Else (if dates[0] is older than yesterday), current_streak remains 0 (correctly)
+        longest_streak = 1
+        current_streak = 1
+        today = date.today()
+
+        if dates[0] == today:
+            for i in range(1, len(dates)):
+                if dates[i] == dates[i-1] - timedelta(days=1):
+                    current_streak += 1
+                    longest_streak = max(longest_streak, current_streak)
+                else:
+                    break
+        else:
+            current_streak = 0
 
         # longest streak hesaplama
         temp_streak = 1
@@ -567,15 +559,18 @@ class DatabaseManager:
         return rows
 
     def reset_user_progress(self, user_id):
+        """
+        Kullanıcının tüm aktivitelerini siler ve XP ile seviyesini sıfırlar.
+        """
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
-        # Delete all user activities
         cursor.execute("DELETE FROM user_activities WHERE user_id = ?", (user_id,))
-        # Delete all level test results
-        cursor.execute("DELETE FROM level_tests WHERE user_id = ?", (user_id,))
-        # Reset user's XP and level
-        cursor.execute("UPDATE users SET xp_points = 0, current_level = 'A1' WHERE id = ?", (user_id,))
+        cursor.execute("""
+            UPDATE users
+            SET xp_points = 0, current_level = 'A1', login_count = 0, last_login = CURRENT_TIMESTAMP
+            WHERE id = ?
+        """, (user_id,))
 
         conn.commit()
         conn.close()
