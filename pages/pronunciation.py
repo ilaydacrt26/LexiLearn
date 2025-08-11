@@ -1,7 +1,10 @@
 import streamlit as st
+from streamlit_mic_recorder import mic_recorder
 from utils.audio_handler import AudioHandler
 from database.models import DatabaseManager
 import json
+import io
+from pydub import AudioSegment
 
 def pronunciation_page():
     st.title("🎤 Telaffuz Kontrolü")
@@ -37,7 +40,6 @@ def pronunciation_exercise():
                 st.session_state.current_level,
                 topic.lower()
             )
-
             st.session_state.current_exercise = exercise_text
             st.session_state.exercise_completed = False
 
@@ -46,26 +48,35 @@ def pronunciation_exercise():
             st.write("### 📝 Metni Okuyun: ")
             st.info(st.session_state.current_exercise)
 
-            # Ses Kaydı Butonu
             st.write("### 🎙️ Kaydınız: ")
 
-            # Streamlit ses kaydı bileşeni
-            audio_bytes = st.experimental_audio_input("Metni okuyun...")
+            recorded = mic_recorder(
+                start_prompt="Kaydı Başlat",
+                stop_prompt="Kaydı Durdur",
+                just_once=True,
+                use_container_width=True,
+                key="mic_recorder_pronunciation",
+                # Eğer destekliyorsa format="wav" ekleyebilirsin
+                # format="wav"
+            )
+
+            audio_bytes = None
+            if recorded and isinstance(recorded, dict) and recorded.get("bytes"):
+                audio_bytes = recorded["bytes"]
+                st.audio(audio_bytes, format="audio/wav")
 
             if audio_bytes and not st.session_state.exercise_completed:
                 with st.spinner("Ses analiz ediliyor..."):
-                    # Ses tanıma
-                    transcribed_text = st.session_state.audio_handler.transcribe_audio(audio_bytes)
-
-                    # Telaffuz analizi
-                    analysis = st.session_state.audio_handler.analyze_pronunciation(
-                        st.session_state.current_exercise,
-                        transcribed_text,
-                        st.session_state.current_level
-                    )
-
-                    # Sonuçları göster
                     try:
+                        # Burada transcribe_audio fonksiyonunu doğrudan çağır
+                        transcribed_text = st.session_state.audio_handler.transcribe_audio(audio_bytes)
+
+                        analysis = st.session_state.audio_handler.analyze_pronunciation(
+                            st.session_state.current_exercise,
+                            transcribed_text,
+                            st.session_state.current_level
+                        )
+
                         analysis_data = json.loads(analysis)
                         score = analysis_data.get("accuracy_score", 0)
 
@@ -85,7 +96,6 @@ def pronunciation_exercise():
                         st.write("**Söylediğiniz:**", transcribed_text)
                         st.write("**Öneriler:**", analysis_data.get("suggestions", ""))
 
-                        # XP kazanımı
                         xp_gained = max(10, score // 10)
                         db = DatabaseManager()
                         db.add_user_activity(
@@ -101,10 +111,11 @@ def pronunciation_exercise():
                         )
 
                         st.session_state.exercise_completed = True
-                    except json.JSONDecodeError:
-                        st.error("Telaffuz analizi başarısız oldu. Lütfen tekrar deneyin.")
+
+                    except Exception as e:
+                        st.error(f"Ses işleme veya transkript hatası: {e}")
             else:
-                st.info("👆 Yukarıdan 'Yeni Egzersiz' butonuna tıklayark başlayın!")
+                st.info("👆 Yukarıdan 'Yeni Egzersiz' butonuna tıklayarak başlayın!")
 
 def show_pronunciation_results():
     st.write("### 📊 Son Sonuçlarınız")

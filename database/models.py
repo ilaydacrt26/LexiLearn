@@ -8,6 +8,10 @@ class DatabaseManager:
         self.db_path = db_path
         self.init_database()
 
+    def connect(self):
+        """Return a new SQLite connection to the configured database path."""
+        return sqlite3.connect(self.db_path)
+
     def init_database(self):
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
@@ -474,6 +478,30 @@ class DatabaseManager:
             result.append((date_str, count, cumulative))
         return result
 
+    def get_pronunciation_progress(self, user_id):
+        """
+        Kullanıcının son 30 gündeki telaffuz skorlarının günlük ortalamasını döndürür.
+        :param user_id: Kullanıcı ID'si
+        :return: [(tarih, ortalama_skor), ...]
+        """
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+                SELECT DATE(created_at) as date, AVG(score) as avg_score
+                FROM user_activities
+                WHERE user_id = ?
+                  AND activity_type = 'pronunciation'
+                  AND DATE(created_at) >= DATE('now', '-30 day')
+                GROUP BY DATE(created_at)
+                ORDER BY DATE(created_at)
+            """,
+            (user_id,),
+        )
+        rows = cursor.fetchall()
+        conn.close()
+        return rows
+
     def get_user_data(self, user_id):
         """
         Kullanıcının temel bilgilerini döndürür.
@@ -532,20 +560,4 @@ class DatabaseManager:
         conn.commit()
         conn.close()
 
-def get_pronunciation_progress(self, user_id):
-    """
-    Kullanıcının son 30 gündeki telaffuz skorlarını döndürür.
-    :param user_id: Kullanıcı ID'si
-    :return: [(tarih, skor), ...]
-    """
-    cursor = self.conn.cursor()
-    cursor.execute("""
-        SELECT DATE(timestamp) as date, AVG(score) as avg_score
-        FROM user_activity
-        WHERE user_id = ?
-          AND activity_type = 'pronunciation'
-          AND timestamp >= DATE('now', '-30 days')
-        GROUP BY DATE(timestamp)
-        ORDER BY DATE(timestamp)
-    """, (user_id,))
-    return cursor.fetchall()
+ 
