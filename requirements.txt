@@ -8,7 +8,6 @@ psycopg2-binary==2.9.10
 db-sqlite3==0.0.1
 plotly==6.2.0
 pandas==2.3.1
-numpy==1.26.4
 python-dotenv==1.1.1
 streamlit-audiorecorder==0.0.6
 streamlit-mic-recorder==0.0.8
