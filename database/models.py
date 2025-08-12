@@ -25,7 +25,8 @@ class DatabaseManager:
                 xp_points INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 last_login TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                login_count INTEGER DEFAULT 0
+                login_count INTEGER DEFAULT 0,
+                weekly_target INTEGER DEFAULT 5
             )
         ''')
 
@@ -37,6 +38,8 @@ class DatabaseManager:
             cursor.execute("UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE last_login IS NULL")
         if 'login_count' not in columns:
             cursor.execute("ALTER TABLE users ADD COLUMN login_count INTEGER DEFAULT 0")
+        if 'weekly_target' not in columns:
+            cursor.execute("ALTER TABLE users ADD COLUMN weekly_target INTEGER DEFAULT 5") # Default 5 days
 
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS level_tests (
@@ -58,10 +61,16 @@ class DatabaseManager:
                 score INTEGER,
                 xp_gained INTEGER,
                 details TEXT,
+                level TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users(id)
             )
         ''')
+
+        cursor.execute("PRAGMA table_info(user_activities)")
+        activity_columns = [col[1] for col in cursor.fetchall()]
+        if 'level' not in activity_columns:
+            cursor.execute("ALTER TABLE user_activities ADD COLUMN level TEXT DEFAULT 'A1'")
 
         conn.commit()
         conn.close()
@@ -70,7 +79,7 @@ class DatabaseManager:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute('''
-            SELECT id, username, password, current_level, login_count, last_login
+            SELECT id, username, password, current_level, login_count, last_login, weekly_target
             FROM users
             WHERE username = ? AND password = ?
         ''', (username, hashed_password))
@@ -125,17 +134,24 @@ class DatabaseManager:
 
         return new_xp, level_changed, (new_level if level_changed else None)
 
+    def update_user_weekly_target(self, user_id, new_target):
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute("UPDATE users SET weekly_target = ? WHERE id = ?", (new_target, user_id))
+        conn.commit()
+        conn.close()
+
     # === EKLENEN FONKSİYONLAR ===
 
-    def add_user_activity(self, user_id, activity_type, score, xp_gained, details):
+    def add_user_activity(self, user_id, activity_type, score, xp_gained, details, level='A1'):
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         # Ensure score does not exceed 10
         score = min(score, 10)
         cursor.execute('''
-            INSERT INTO user_activities (user_id, activity_type, score, xp_gained, details)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (user_id, activity_type, score, xp_gained, details))
+            INSERT INTO user_activities (user_id, activity_type, score, xp_gained, details, level)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (user_id, activity_type, score, xp_gained, details, level))
         conn.commit()
         conn.close()
 
@@ -143,7 +159,7 @@ class DatabaseManager:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute('''
-            SELECT id, details, score, xp_gained, created_at
+            SELECT id, details, score, xp_gained, created_at, level
             FROM user_activities
             WHERE user_id = ? AND activity_type = 'word_task'
             ORDER BY created_at DESC
@@ -161,7 +177,8 @@ class DatabaseManager:
                     "sentence": details.get("sentence", ""),
                     "score": row[2],
                     "xp": row[3],
-                    "date": row[4]
+                    "date": row[4],
+                    "level": row[5]
                 })
             except:
                 continue

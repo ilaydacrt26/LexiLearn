@@ -300,6 +300,8 @@ def show_achievements():
 def show_settings():
     st.write("### ⚙️ Hesap Ayarları")
 
+    db = DatabaseManager() # Initialize db here
+
     # Kullanıcı bilgileri
     col1, col2 = st.columns(2)
 
@@ -310,7 +312,16 @@ def show_settings():
         # Öğrenme hedefleri
         st.write("### 🎯 Öğrenme Hedefleri")
         daily_goal = st.slider("Günlük Hedef {dakika}:", 10, 120, 30)
-        weekly_goal = st.slider("Haftalık Hedef {gün}:", 3, 7, 5)
+        
+        # Fetch current weekly target from session state (updated from DB on login)
+        current_weekly_target = st.session_state.get('weekly_target', 5) 
+        new_weekly_goal = st.slider("Haftalık Hedef {gün}:", 3, 7, current_weekly_target)
+        
+        if new_weekly_goal != current_weekly_target:
+            db.update_user_weekly_target(st.session_state.user_id, new_weekly_goal)
+            st.session_state.weekly_target = new_weekly_goal
+            st.success(f"Haftalık hedefiniz {new_weekly_goal} gün olarak güncellendi!")
+            st.rerun() # Rerun to reflect changes
 
         # Bildirim ayarları
         st.write("### 🔔 Bildirimler")
@@ -320,7 +331,6 @@ def show_settings():
     with col2:
         st.write("### 📊 İstatistikler")
 
-        db = DatabaseManager()
         user_data = db.get_user_data(st.session_state.user_id)
 
         st.write(f"**Katılım Tarihi:** {user_data.get('created_at', 'Bilinmiyor')}")

@@ -50,7 +50,10 @@ def show_daily_streak():
         st.metric("✅ Bugün", "Tamamlandı" if today_completed else "Devam Ediyor")
 
     with col4:
-        st.metric("🎯 Haftalık Hedef", "5/7 gün")
+        weekly_activity_data = db.get_weekly_activity(st.session_state.user_id)
+        days_this_week = len(weekly_activity_data)
+        weekly_target = st.session_state.get('weekly_target', 5) # Fetch from session state
+        st.metric("🎯 Haftalık Hedef", f"{days_this_week}/{weekly_target} gün")
 
 def get_daily_words():
     # Günlük kelimeleri seç
@@ -167,7 +170,8 @@ def check_sentence_task(word_data, user_sentence, task_index):
                     "word": word_data["word"],
                     "sentence": user_sentence,
                     "evaluation": eval_data
-                })
+                }),
+                level=st.session_state.current_level # Kelimenin öğrenildiği seviyeyi ekle
             )
 
             # XP güncelle
@@ -212,16 +216,32 @@ def vocabulary_notebook():
         with col2:
             sort_by = st.selectbox("Sırala:", ["Tarih", "Skor", "Kelime"])
 
-        # Kelimeleri listele
-        for word_entry in learned_words:
-            with st.expander(f"{word_entry['word']} = Skor: {word_entry['score']/10}"):
-                st.write(f"**Oluşturduğunuz cümle:** {word_entry['sentence']}")
-                st.write(f"**Tarih:** {word_entry['date']}")
-                st.write(f"**Kazanılan XP:** {word_entry['xp']}")
+        # Filtreleme ve sıralama
+        filtered_words = learned_words
+        if filter_level != "Tümü":
+            filtered_words = [word for word in learned_words if word.get('level') == filter_level]
 
-                # Tekrar çalış butonu
-                if st.button("Tekrar Çalış", key=f"review_{word_entry['id']}"):
-                    st.info("Bu kelimeyi tekrar çalışmak için günlük görevlere eklendi!")
+        if sort_by == "Tarih":
+            filtered_words.sort(key=lambda x: x['date'], reverse=True)
+        elif sort_by == "Skor":
+            filtered_words.sort(key=lambda x: x['score'], reverse=True)
+        elif sort_by == "Kelime":
+            filtered_words.sort(key=lambda x: x['word'].lower())
+
+        # Kelimeleri listele
+        if filtered_words:
+            for word_entry in filtered_words:
+                with st.expander(f"{word_entry['word']} = Skor: {word_entry['score']/10}"):
+                    st.write(f"**Seviye:** {word_entry.get('level', 'N/A')}")
+                    st.write(f"**Oluşturduğunuz cümle:** {word_entry['sentence']}")
+                    st.write(f"**Tarih:** {word_entry['date']}")
+                    st.write(f"**Kazanılan XP:** {word_entry['xp']}")
+
+                    # Tekrar çalış butonu
+                    if st.button("Tekrar Çalış", key=f"review_{word_entry['id']}"):
+                        st.info("Bu kelimeyi tekrar çalışmak için günlük görevlere eklendi!")
+        else:
+            st.info("Filtreleme kriterlerinize uygun kelime bulunamadı.")
     else:
         st.info("Henüz kelime öğrenmediniz. Günlük görevleri tamamlayın!")
 

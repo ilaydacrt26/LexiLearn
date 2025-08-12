@@ -23,7 +23,12 @@ def main():
     # Kullanıcı girişi kontrolü
     if 'user_id' not in st.session_state:
         login.login_page()
-        return
+        return # Stop execution if not logged in yet
+
+    # Kullanıcı başarıyla giriş yaptıysa veya zaten girişliyse, weekly_target'ı session_state'e ekle/güncelle
+    db = DatabaseManager()
+    user_data = db.get_user_data(st.session_state.user_id)
+    st.session_state.weekly_target = user_data.get('weekly_target', 5) # Default 5 gün
 
     # Sidebar içeriği
     st.sidebar.title(f"Merhaba, {st.session_state.username}!")
@@ -45,28 +50,6 @@ def main():
         for key in list(st.session_state.keys()):
             del st.session_state[key]
         st.rerun()
-
-    # Ana sayfa içeriği
-    # if 'page' not in st.session_state:
-    #     st.session_state.page = "🏠 Ana Sayfa"
-
-    # Sayfa yönlendirme (sayfa değişkeni sidebar'dan geldiği için burada tekrar tanımlamaya gerek yok)
-    # if page == "🏠 Ana Sayfa":
-    #     show_dashboard()
-    # elif page == "📚 Seviye Belirleme Sınavı":
-    #     level_test.level_test_page()
-    # elif page == "💬 Konuşma Partneri":
-    #     chat_partner.chat_partner_page()
-    # elif page == "📝 Günlük Görevler":
-    #     daily_tasks.daily_tasks_page()
-    # elif page == "🎤 Telaffuz Kontrolü":
-    #     pronunciation.pronunciation_page()
-    # elif page == "🎭 Senaryolar":
-    #     scenarios.scenarios_page()
-    # elif page == "🎧 Dinleme":
-    #     listening.listening_page()
-    # elif page == "👤 Profil":
-    #     profile.profile_page()
 
     # Corrected page routing based on the 'page' variable from sidebar
     if page == "🏠 Ana Sayfa":
