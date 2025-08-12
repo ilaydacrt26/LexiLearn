@@ -2,7 +2,7 @@ streamlit==1.47.0
 langchain==0.2.5
 langchain_community==0.2.5
 chromadb==1.0.15
-google-generativeai==0.11.0
+google-generativeai==0.8.5
 SpeechRecognition==3.14.3
 psycopg2-binary==2.9.10
 db-sqlite3==0.0.1
