@@ -1,20 +1,26 @@
 import os
 import sys
-import chromadb
+import duckdb
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import GooglePalmEmbeddings
-from langchain_community.vectorstores import Chroma
+import numpy as np
 
 class RAGSystem:
-    def __init__(self):
-        self.persist_directory = "chroma_db"
-        if not os.path.exists(self.persist_directory):
-            os.makedirs(self.persist_directory)
-        self.client = chromadb.PersistentClient(path=self.persist_directory)
-        self.collection = self.client.create_collection(
-            name="lexilearn_content",
-            get_or_create=True
-        )
+    def __init__(self, db_path='lexilearn_rag.duckdb'):
+        self.db_path = db_path
+        self.con = duckdb.connect(database=self.db_path, read_only=False)
+        self.embeddings_model = GooglePalmEmbeddings()
+
+        self.con.execute("""
+            CREATE TABLE IF NOT EXISTS rag_content (
+                id VARCHAR PRIMARY KEY,
+                content VARCHAR,
+                embedding BLOB,
+                level VARCHAR,
+                type VARCHAR,
+                chunk_id INTEGER
+            )
+        """)
 
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=500,
@@ -22,36 +28,55 @@ class RAGSystem:
         )
 
     def add_content(self, content, level, content_type):
-        # İçeriği vektör veritabanına ekle
         chunks = self.text_splitter.split_text(content)
-
         for i, chunk in enumerate(chunks):
-            self.collection.add(
-                documents=[chunk],
-                metadatas=[{"level": level, "type": content_type, "chunk_id": i}],
-                ids=[f"{level}_{content_type}_{i}_{hash(chunk)}"]
-            )
+            embedding = self.embeddings_model.embed_query(chunk)
+            # DuckDB stores BLOBs as bytes, so convert numpy array to bytes
+            embedding_bytes = embedding.tobytes()
+            chunk_id = f"{level}_{content_type}_{i}_{hash(chunk)}"
+            self.con.execute("INSERT INTO rag_content VALUES (?, ?, ?, ?, ?, ?)",
+                             (chunk_id, chunk, embedding_bytes, level, content_type, i))
 
     def search_content(self, query, level, content_type=None, n_results=3):
-        # Seviye ve türe göre içerik ara
+        query_embedding = self.embeddings_model.embed_query(query)
+        # Convert query embedding to bytes for DuckDB comparison (if needed, or handle in Python)
+        query_embedding_bytes = np.array(query_embedding).tobytes()
+
+        # Retrieve all relevant data from DuckDB for filtering and similarity calculation in Python
+        # For large datasets, this might need optimization or external vector index
+        where_clauses = [f"level = '{level}'"]
         if content_type:
-            where_clause = {
-                "$and": [
-                    {"level": {"$eq": level}},
-                    {"type": {"$eq": content_type}}
-                ]
-            }
-        else:
-            where_clause = {"level": {"$eq": level}}
+            where_clauses.append(f"type = '{content_type}'")
+        
+        where_sql = " AND ".join(where_clauses)
 
-        results = self.collection.query(
-            query_texts=[query],
-            where=where_clause,
-            n_results=n_results
-        )
+        # Fetch all data that matches the metadata filters
+        # We need the embeddings as numpy arrays for calculation
+        results = self.con.execute(f"SELECT content, embedding, level, type FROM rag_content WHERE {where_sql}").fetchall()
 
-        return results['documents'][0] if results['documents'] else []
-    
+        if not results:
+            return []
+
+        # Calculate cosine similarity in Python
+        def cosine_similarity(vec1, vec2):
+            vec1_np = np.frombuffer(vec1, dtype=np.float32) # Assuming embeddings are float32
+            vec2_np = np.array(vec2)
+            dot_product = np.dot(vec1_np, vec2_np)
+            norm_vec1 = np.linalg.norm(vec1_np)
+            norm_vec2 = np.linalg.norm(vec2_np)
+            if norm_vec1 == 0 or norm_vec2 == 0:
+                return 0.0
+            return dot_product / (norm_vec1 * norm_vec2)
+
+        scored_results = []
+        for content, embedding_blob, level, content_type in results:
+            similarity = cosine_similarity(embedding_blob, query_embedding)
+            scored_results.append((content, similarity))
+
+        # Sort by similarity and return top results
+        scored_results.sort(key=lambda x: x[1], reverse=True)
+        return [content for content, _ in scored_results[:n_results]]
+
     def populate_initial_data(self):
         # Başlangıç verilerini ekle
         content_data = {
@@ -99,5 +124,3 @@ def initialize_rag():
     rag = RAGSystem()
     rag.populate_initial_data()
     return rag
-
-# initialize_rag()
