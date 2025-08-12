@@ -6,7 +6,11 @@ import os
 
 class RAGSystem:
     def __init__(self):
-        self.client = chromadb.Client()
+        # Ensure the directory for ChromaDB exists
+        self.persist_directory = "chroma_db"
+        if not os.path.exists(self.persist_directory):
+            os.makedirs(self.persist_directory)
+        self.client = chromadb.PersistentClient(path=self.persist_directory)
         self.collection = self.client.create_collection(
             name="lexilearn_content",
             get_or_create=True
