@@ -9,7 +9,7 @@ class RAGSystem:
     def __init__(self, db_path='lexilearn_rag.duckdb'):
         self.db_path = db_path
         self.con = duckdb.connect(database=self.db_path, read_only=False)
-        self.embeddings_model = GooglePalmEmbeddings()
+        self.embeddings_model = GooglePalmEmbeddings(google_api_key=os.getenv("GEMINI_API_KEY"))
 
         self.con.execute("""
             CREATE TABLE IF NOT EXISTS rag_content (
