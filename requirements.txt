@@ -1,6 +1,6 @@
 streamlit==1.47.0
-langchain==0.3.26
-chromadb==1.0.15
+langchain==0.2.11
+langchain-google-genai==0.1.7
 openai==1.97.1
 google-generativeai==0.8.5
 SpeechRecognition==3.14.3

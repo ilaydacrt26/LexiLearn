@@ -2,7 +2,7 @@ import os
 import sys
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.embeddings import GooglePalmEmbeddings
+from langchain_google_genai.embeddings import GooglePalmEmbeddings
 from langchain_community.vectorstores import FAISS
 
 class RAGSystem:
