@@ -1,10 +1,8 @@
 import os
 import sys
 
-import chromadb
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import GooglePalmEmbeddings
-from langchain_community.vectorstores import Chroma
 from langchain_community.vectorstores import FAISS
 
 class RAGSystem:
