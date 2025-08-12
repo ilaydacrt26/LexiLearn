@@ -1,61 +1,57 @@
 import os
 import sys
-
+import chromadb
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_google_genai.embeddings import GooglePalmEmbeddings
-from langchain_community.vectorstores import FAISS
+from langchain_community.embeddings import GooglePalmEmbeddings
+from langchain_community.vectorstores import Chroma
 
 class RAGSystem:
     def __init__(self):
-        self.embeddings = GooglePalmEmbeddings()
-        self.vector_store = None  # Initialize as None, will be loaded or created
+        self.persist_directory = "chroma_db"
+        if not os.path.exists(self.persist_directory):
+            os.makedirs(self.persist_directory)
+        self.client = chromadb.PersistentClient(path=self.persist_directory)
+        self.collection = self.client.create_collection(
+            name="lexilearn_content",
+            get_or_create=True
+        )
 
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=500,
             chunk_overlap=50
         )
 
-        # Try to load existing FAISS index or create a new one
-        if os.path.exists("faiss_index"):
-            self.vector_store = FAISS.load_local("faiss_index", self.embeddings, allow_dangerous_deserialization=True)
-        else:
-            # Create an empty FAISS index initially if no existing one
-            self.vector_store = FAISS.from_texts(["initial_text"], self.embeddings) # Dummy entry to initialize
-            self.vector_store.save_local("faiss_index")
-
     def add_content(self, content, level, content_type):
         # İçeriği vektör veritabanına ekle
         chunks = self.text_splitter.split_text(content)
-        metadatas = [{
-            "level": level,
-            "type": content_type,
-            "chunk_id": i
-        } for i, chunk in enumerate(chunks)]
 
-        # Add chunks to FAISS index
-        if self.vector_store:
-            self.vector_store.add_texts(chunks, metadatas=metadatas)
-        else:
-            # This case should ideally not be hit if initialization is correct
-            self.vector_store = FAISS.from_texts(chunks, self.embeddings, metadatas=metadatas)
-        self.vector_store.save_local("faiss_index") # Persist changes
+        for i, chunk in enumerate(chunks):
+            self.collection.add(
+                documents=[chunk],
+                metadatas=[{"level": level, "type": content_type, "chunk_id": i}],
+                ids=[f"{level}_{content_type}_{i}_{hash(chunk)}"]
+            )
 
     def search_content(self, query, level, content_type=None, n_results=3):
         # Seviye ve türe göre içerik ara
-        if not self.vector_store:
-            return [] # No vector store, no results
+        if content_type:
+            where_clause = {
+                "$and": [
+                    {"level": {"$eq": level}},
+                    {"type": {"$eq": content_type}}
+                ]
+            }
+        else:
+            where_clause = {"level": {"$eq": level}}
 
-        docs = self.vector_store.similarity_search(query, k=n_results)
+        results = self.collection.query(
+            query_texts=[query],
+            where=where_clause,
+            n_results=n_results
+        )
 
-        filtered_docs = []
-        for doc in docs:
-            if doc.metadata.get("level") == level:
-                if content_type and doc.metadata.get("type") == content_type:
-                    filtered_docs.append(doc.page_content)
-                elif not content_type:
-                    filtered_docs.append(doc.page_content)
-        return filtered_docs
-
+        return results['documents'][0] if results['documents'] else []
+    
     def populate_initial_data(self):
         # Başlangıç verilerini ekle
         content_data = {
