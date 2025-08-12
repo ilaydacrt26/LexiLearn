@@ -1,8 +1,13 @@
+import os
+import sys
+
+__import__('pysqlite3')
+sys.modules['sqlite3'] = sys.modules['pysqlite3']
+
 import chromadb
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import GooglePalmEmbeddings
 from langchain_community.vectorstores import Chroma
-import os 
 
 class RAGSystem:
     def __init__(self):
