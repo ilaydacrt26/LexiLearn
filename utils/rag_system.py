@@ -1,22 +1,50 @@
 import os
 import sys
+from dotenv import load_dotenv
 
-import chromadb
+import duckdb
+import google.generativeai as genai
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import GooglePalmEmbeddings
-from langchain_community.vectorstores import Chroma
+from langchain_community.vectorstores import DuckDB
+
+load_dotenv() # Load environment variables from .env file
+
+class CustomGoogleGenerativeAIEmbeddings:
+    def __init__(self, google_api_key: str):
+        genai.configure(api_key=google_api_key)
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        embeddings = []
+        for text in texts:
+            response = genai.embed_content(model="models/embedding-001", content=text)
+            embeddings.append(response['embedding'])
+        return embeddings
+
+    def embed_query(self, text: str) -> list[float]:
+        response = genai.embed_content(model="models/embedding-001", content=text)
+        return response['embedding']
 
 class RAGSystem:
     def __init__(self):
-        self.persist_directory = "chroma_db"
+        self.persist_directory = "duckdb_db"
         if not os.path.exists(self.persist_directory):
             os.makedirs(self.persist_directory)
-        self.client = chromadb.PersistentClient(path=self.persist_directory)
-        self.collection = self.client.create_collection(
-            name="lexilearn_content",
-            get_or_create=True
-        )
+        self.db_path = os.path.join(self.persist_directory, "lexilearn.duckdb")
 
+        google_api_key = os.getenv("GEMINI_API_KEY")
+        if not google_api_key:
+            raise ValueError("GEMINI_API_KEY environment variable not set. Please set it to your Gemini API key.")
+        self.embeddings = CustomGoogleGenerativeAIEmbeddings(google_api_key=google_api_key)
+
+        # Initialize DuckDB connection
+        self.db_connection = duckdb.connect(database=self.db_path)
+
+        # Initialize DuckDB vectorstore using the connection
+        self.vectorstore = DuckDB(
+            connection=self.db_connection,
+            embedding=self.embeddings,
+        )
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=500,
             chunk_overlap=50
@@ -27,8 +55,8 @@ class RAGSystem:
         chunks = self.text_splitter.split_text(content)
 
         for i, chunk in enumerate(chunks):
-            self.collection.add(
-                documents=[chunk],
+            self.vectorstore.add_texts(
+                texts=[chunk],
                 metadatas=[{"level": level, "type": content_type, "chunk_id": i}],
                 ids=[f"{level}_{content_type}_{i}_{hash(chunk)}"]
             )
@@ -45,13 +73,13 @@ class RAGSystem:
         else:
             where_clause = {"level": {"$eq": level}}
 
-        results = self.collection.query(
-            query_texts=[query],
+        results = self.vectorstore.similarity_search(
+            query=query,
             where=where_clause,
-            n_results=n_results
+            k=n_results
         )
 
-        return results['documents'][0] if results['documents'] else []
+        return results[0].page_content if results else []
     
     def populate_initial_data(self):
         # Başlangıç verilerini ekle
@@ -101,4 +129,4 @@ def initialize_rag():
     rag.populate_initial_data()
     return rag
 
-# initialize_rag()
+initialize_rag()
