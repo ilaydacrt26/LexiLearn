@@ -1,12 +1,12 @@
 import streamlit as st
-from _pages import _login as login, \
-                  _level_test as level_test, \
-                  _chat_partner as chat_partner, \
-                  _daily_tasks as daily_tasks, \
-                  _pronunciation as pronunciation, \
-                  _scenarios as scenarios, \
-                  _listening as listening, \
-                  _profile as profile
+from _pages import _login as login
+from _pages import _level_test as level_test
+from _pages import _chat_partner as chat_partner
+from _pages import _daily_tasks as daily_tasks
+from _pages import _pronunciation as pronunciation
+from _pages import _scenarios as scenarios
+from _pages import _listening as listening
+from _pages import _profile as profile
 from database.models import DatabaseManager
 
 def main():
