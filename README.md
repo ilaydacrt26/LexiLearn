@@ -15,7 +15,7 @@ LexiLearn'i kendi yerel ortamınızda kurmak ve çalıştırmak için aşağıda
 ### 1. Depoyu Klonlayın
 
 ```bash
-git clone https://github.com/KullaniciAdiniz/LexiLearn.git # Kendi depo URL'nizi buraya ekleyin
+git clone https://github.com/ilaydacrt26/LexiLearn.git
 cd LexiLearn
 ```
 
